@@ -8,49 +8,74 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Flask 백엔드 API 데이터 호출
-    fetch("http://localhost:5000/api/weather?nx=60&ny=127")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setData(json);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Fetch error:", err);
-        setLoading(false);
-      });
+    // 날씨 데이터 호출 함수 (위경도 유무에 따라 쿼리 분기)
+    const getWeatherData = (lat?: number, lon?: number) => {
+      const query = lat && lon ? `lat=${lat}&lon=${lon}` : `nx=60&ny=127`;
+      const url = `http://localhost:5000/api/weather?${query}`;
+
+      fetch(url)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success) setData(json);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+
+    // 브라우저 Geolocation API를 이용한 위치 정보 획득
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => getWeatherData(pos.coords.latitude, pos.coords.longitude),
+        () => getWeatherData() // 권한 거부 시 기본 좌표 사용
+      );
+    } else {
+      getWeatherData();
+    }
   }, []);
 
-  if (loading) return <div className="p-10 text-gray-900 dark:text-gray-100">로딩 중...</div>;
-  if (!data) return <div className="p-10 text-gray-900 dark:text-gray-100">데이터 없음</div>;
+  // 로딩 및 에러 처리 UI
+  if (loading) return <div className="p-10 text-gray-900 dark:text-gray-100">위치 동기화 중...</div>;
+  if (!data) return <div className="p-10 text-gray-900 dark:text-gray-100">데이터를 불러올 수 없습니다.</div>;
 
   return (
     <main className="p-10 font-sans min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
-      <h1 className="text-2xl font-bold mb-6">오늘의 날씨 코디</h1>
-      
-      {/* 날씨 정보 섹션 */}
-      <section className="mb-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">현재 날씨</h2>
-        <div className="flex gap-10">
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">기온</p>
-            <p className="text-xl font-bold">{data.weather.TMP}°C</p>
+      {/* 헤더: 시간 및 AI가 추출한 행정동 표시 */}
+      <header className="mb-8">
+        <h1 className="text-3xl font-black mb-2 tracking-tight">오늘의 동네 코디</h1>
+        <div className="text-sm space-y-1">
+          <p className="text-gray-400">📅 조회 시각: {data.server_time}</p>
+          <div className="flex items-center gap-1 text-blue-500 font-bold text-lg">
+            <span className="text-xl">📍</span>
+            <p>{data.address}</p>
           </div>
+        </div>
+      </header>
+
+      {/* 날씨 정보 카드 (기온, 습도, 풍속) */}
+      <section className="mb-8 p-6 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+        <h2 className="text-xs uppercase tracking-widest font-bold mb-4 opacity-50">Weather Report</h2>
+        <div className="flex justify-between items-center max-w-sm">
           <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">습도</p>
-            <p className="text-xl font-bold">{data.weather.REH}%</p>
+            <p className="text-xs opacity-60">온도</p>
+            <p className="text-3xl font-black">{data.weather.TMP}°</p>
           </div>
+          <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
           <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">풍속</p>
-            <p className="text-xl font-bold">{data.weather.WSD}m/s</p>
+            <p className="text-xs opacity-60">습도</p>
+            <p className="text-3xl font-black">{data.weather.REH}%</p>
+          </div>
+          <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
+          <div>
+            <p className="text-xs opacity-60">바람</p>
+            <p className="text-3xl font-black">{data.weather.WSD}m/s</p>
           </div>
         </div>
       </section>
 
-      {/* AI 코디 추천 섹션 (마크다운 적용) */}
-      <section className="p-6 bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-800 rounded-lg">
-        <h2 className="text-lg font-semibold mb-2 text-blue-900 dark:text-blue-200">AI 추천 코디</h2>
-        <div className="text-blue-900 dark:text-blue-200 leading-relaxed prose dark:prose-invert max-w-none">
+      {/* AI 코디 추천 결과 (마크다운 렌더링) */}
+      <section className="p-8 bg-blue-600 text-white rounded-3xl shadow-xl shadow-blue-200 dark:shadow-none">
+        <h2 className="text-sm font-bold mb-4 opacity-80 uppercase tracking-tighter">AI Style Advice</h2>
+        <div className="text-xl font-medium leading-snug">
           <ReactMarkdown>{data.recommendation}</ReactMarkdown>
         </div>
       </section>
