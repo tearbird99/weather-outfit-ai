@@ -89,35 +89,37 @@ def fetch_weather():
     try:
         r = requests.get(url, params=params)
         items = r.json()['response']['body']['items']['item']
-        # 기온, 습도, 풍속 데이터 추출
-        w = {i['category']: i['fcstValue'] for i in items if i['category'] in ['TMP', 'REH', 'WSD']}
-        
-        # AI에게 위치 유추 및 코디 추천 요청
+    
+        # 추출 카테고리 확장: POP(강수확률), PCP(강수량) 추가
+        w = {i['category']: i['fcstValue'] for i in items if i['category'] in ['TMP', 'REH', 'WSD', 'POP', 'PCP', 'SKY', 'PTY']}
+    
+        # 체감온도 계산 로직 유지
+        tmp = float(w['TMP'])
+        wsd = float(w['WSD'])
+        feels_like = round(13.12 + 0.6215 * tmp - 11.37 * math.pow(wsd * 3.6, 0.16) + 0.3965 * tmp * math.pow(wsd * 3.6, 0.16), 1)
+
+        # Prompt에 강수 정보 추가하여 코디 조언 정교화
         prompt = f"""
-        위도 {lat}, 경도 {lon} (기상청 격자 {nx}, {ny}) 지역의 날씨는 기온 {w['TMP']}도, 습도 {w['REH']}%, 풍속 {w['WSD']}m/s야.
-        1. 이 좌표가 속한 한국의 '동, 읍, 면' 단위 행정구역 명칭을 찾아줘.
-        2. 해당 지역 날씨에 맞는 코디를 한 문장으로 추천해줘.
-        답변 형식: [행정구역 명칭] | [코디 추천 내용]
+        위치: {lat}, {lon} / 날씨: 기온 {w['TMP']}도(체감 {feels_like}도), 강수확률 {w['POP']}%, 강수량 {w['PCP']}, 습도 {w['REH']}%, 풍속 {w['WSD']}m/s.
+        1. 행정구역(동, 읍, 면).
+        2. Lucide 아이콘(Sun, Cloud, CloudRain, Snow).
+        3. 날씨와 강수여부를 고려한 한 문장 코디 추천.
+        답변 형식: [행정구역] | [아이콘명] | [코디 추천]
         """
+    
+        response = client.models.generate_content(model="gemini-3-flash-preview", contents=prompt)
+        ai_parts = response.text.strip().split("|")
         
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview", 
-            contents=prompt
-        )
-        
-        # AI 응답 파싱 및 예외 처리
-        ai_text = response.text.strip()
-        if "|" in ai_text:
-            address, recommendation = ai_text.split("|")
-        else:
-            address = f"격자 {nx}, {ny} 인근"
-            recommendation = ai_text
+        address = ai_parts[0].strip() if len(ai_parts) > 0 else "지역 불명"
+        icon_type = ai_parts[1].strip() if len(ai_parts) > 1 else "Cloud"
+        recommendation = ai_parts[2].strip() if len(ai_parts) > 2 else ai_parts[0]
 
         return jsonify({
             "success": True,
-            "weather": w,
-            "recommendation": recommendation.strip(),
-            "address": address.strip(),
+            "weather": {**w, "FEELS": feels_like},
+            "recommendation": recommendation,
+            "address": address,
+            "icon": icon_type,
             "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
