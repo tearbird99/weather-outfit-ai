@@ -39,7 +39,7 @@
 * `LCC 변환 알고리즘`: 위경도 ↔ 격자 좌표 간의 수학적 좌표 변환 로직 내장
 
 **배포 주소**
-* weather-outfit-ai.vercel.app
+* [weather-outfit-ai.vercel.app](https://weather-outfit-ai.vercel.app/)
 
 ---
 
