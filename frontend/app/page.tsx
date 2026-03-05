@@ -26,7 +26,7 @@ export default function Home() {
     // 위치 기반 날씨 데이터 호출 (GPS 미승인 시 서울 좌표 사용)
     const getWeatherData = (lat?: number, lon?: number) => {
       const query = lat && lon ? `lat=${lat}&lon=${lon}` : `nx=60&ny=127`;
-      fetch(`http://localhost:5000/api/weather?${query}`)
+      fetch(`https://weather-outfit-ai-ey6r.onrender.com/api/weather?${query}`)
         .then(res => res.json())
         .then(json => {
           if (json.success) setData(json);
