@@ -10,7 +10,8 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app) # 프론트엔드 통신 허용
+# 모든 출처(Origin)로부터의 요청을 허용하도록 설정
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # API 키 및 클라이언트 설정
 SERVICE_KEY = os.getenv("WEATHER_API_KEY")
